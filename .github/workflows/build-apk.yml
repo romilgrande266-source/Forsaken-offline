@@ -1,0 +1,29 @@
+name: build-android
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+env:
+  GODOT_VERSION: "4.3"
+jobs:
+  export:
+    runs-on: ubuntu-22.04
+    container:
+      image: barichello/godot-ci:4.3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup templates and Android settings
+        run: |
+          mkdir -v -p ~/.local/share/godot/export_templates ~/.config/godot build
+          mv /root/.local/share/godot/templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          keytool -keyalg RSA -genkeypair -alias androiddebugkey -keypass android \
+            -keystore /root/debug.keystore -storepass android \
+            -dname "CN=Android Debug,O=Android,C=US" -validity 9999 -deststoretype pkcs12
+          # (editor_settings-4.tres is written here with the SDK, JDK and keystore paths)
+      - run: godot --headless --import || true
+      - run: godot --headless --export-debug "Android ARM64" build/forsaken-arm64.apk
+      - run: godot --headless --export-debug "Android ARMv7" build/forsaken-armv7.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forsaken-apks
+          path: build/*.apk
